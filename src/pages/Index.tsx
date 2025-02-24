@@ -1,49 +1,164 @@
 
+import { useRef, useState } from 'react';
+import Editor from "@monaco-editor/react";
+import { Loader2 } from 'lucide-react';
+
 const Index = () => {
+  const editorRef = useRef(null);
+  const [output, setOutput] = useState("Output will be displayed here");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [isOutputCollapsed, setIsOutputCollapsed] = useState(false);
+  const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
+
+  const defaultCode = `class Main {
+  public static void main(String[] args) {
+    System.out.println("I will get a Job.");
+  }
+}`;
+
+  const handleEditorDidMount = (editor) => {
+    editorRef.current = editor;
+  };
+
+  const runCode = async () => {
+    if (!editorRef.current) return;
+
+    try {
+      setIsLoading(true);
+      const sourceCode = editorRef.current.getValue();
+      const languageId = 62;
+      const apiKey = "3bb57c5278msh2673c6e0d2d15afp1a6c7djsne396dbe33ed5";
+      const host = 'judge0-ce.p.rapidapi.com';
+      
+      const response = await fetch(
+        "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-rapidapi-key": apiKey,
+            "x-rapidapi-host": host
+          },
+          body: JSON.stringify({
+            source_code: sourceCode,
+            language_id: languageId,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      let output;
+      
+      if (data?.stdout) {
+        output = data.stdout;
+        setIsError(false);
+      } else if (data?.compile_output) {
+        output = data.compile_output;
+        setIsError(true);
+      } else if (data?.stderr) {
+        output = data.stderr;
+        setIsError(true);
+      } else {
+        output = "There seems to be an issue with your code.";
+        setIsError(true);
+      }
+
+      setOutput(output);
+    } catch (error) {
+      console.error("Error submitting code:", error);
+      setOutput("Error running code. Please try again.");
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-b from-background to-secondary/20 animate-fade-in">
-      <div className="max-w-4xl w-full px-6 py-16 space-y-8">
-        <div className="space-y-2 text-center">
-          <div className="inline-flex items-center justify-center px-4 py-1.5 mb-4 text-sm font-medium rounded-full bg-primary/5 text-primary animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            Welcome to your application
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            Start Building Your Amazing Project
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.4s' }}>
-            Create something extraordinary with modern tools and endless possibilities.
-          </p>
+    <div className="h-screen flex flex-col bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card px-6 py-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold">Code Editor</h1>
         </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-          <div className="group relative overflow-hidden rounded-2xl hover-scale">
-            <div className="p-8 glass-effect border">
-              <h3 className="text-xl font-medium mb-2">Modern Design</h3>
-              <p className="text-muted-foreground">
-                Clean, minimal aesthetics with attention to every detail.
-              </p>
+      </header>
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Editor Section */}
+        <div className={`flex-1 border-r border-border transition-all duration-300 ${isEditorCollapsed ? 'w-0 opacity-0' : ''}`}>
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-border flex justify-between items-center">
+              <button 
+                onClick={() => setIsEditorCollapsed(!isEditorCollapsed)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isEditorCollapsed ? '>' : '<'} Code Editor
+              </button>
             </div>
-          </div>
-          
-          <div className="group relative overflow-hidden rounded-2xl hover-scale">
-            <div className="p-8 glass-effect border">
-              <h3 className="text-xl font-medium mb-2">Powerful Features</h3>
-              <p className="text-muted-foreground">
-                Built with the latest technologies for optimal performance.
-              </p>
+            <div className="flex-1 overflow-hidden">
+              <Editor
+                height="100%"
+                defaultLanguage="java"
+                defaultValue={defaultCode}
+                theme="vs-dark"
+                options={{
+                  fontSize: 16,
+                  minimap: { enabled: false },
+                  padding: { top: 20 },
+                }}
+                onMount={handleEditorDidMount}
+                className="w-full h-full"
+              />
             </div>
           </div>
         </div>
 
-        <div className="flex justify-center space-x-4 pt-8 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          <button className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
-            Get Started
-          </button>
-          <button className="px-6 py-2.5 rounded-full border border-input bg-background hover:bg-secondary transition-colors">
-            Learn More
-          </button>
+        {/* Output Section */}
+        <div className={`flex-1 transition-all duration-300 ${isOutputCollapsed ? 'w-0 opacity-0' : ''}`}>
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-border flex justify-between items-center">
+              <button 
+                onClick={() => setIsOutputCollapsed(!isOutputCollapsed)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Output {isOutputCollapsed ? '<' : '>'}
+              </button>
+            </div>
+            <div className="flex-1 p-6 bg-card overflow-auto">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                </div>
+              ) : (
+                <pre className={`font-mono text-sm ${isError ? 'text-destructive' : 'text-foreground'}`}>
+                  {output}
+                </pre>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-card p-4">
+        <div className="flex justify-end">
+          <button
+            onClick={runCode}
+            disabled={isLoading}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity flex items-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="animate-spin h-4 w-4" />
+                Running...
+              </>
+            ) : (
+              'Run Code'
+            )}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };
